@@ -1,8 +1,13 @@
 
-"""WorldSmith local AI adapter with strict output validation."""
+"""WorldSmith local AI adapter.
+
+Uses a local Ollama model to transform natural-language game ideas
+into structured game designs.
+"""
 
 import json
 import os
+import socket
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -33,105 +38,239 @@ REQUIRED_LISTS = (
     "open_questions",
 )
 
-SYSTEM_PROMPT = """
-You are WorldSmith, an AI game-design planning system.
-
-Understand the meaning of the user's game idea, not just keywords.
-Preserve explicit requirements and infer reasonable design details.
-
-Return exactly one JSON object with these fields:
-{
-  "title": "short game title",
-  "genre": "main genre",
-  "perspective": "2D, 3D, first-person, third-person, or top-down",
-  "target_engine": "Godot",
-  "core_loop": "the main repeated gameplay activity",
-  "features": ["feature 1", "feature 2"],
-  "player_goal": "what the player is trying to accomplish",
-  "world_description": "setting and atmosphere",
-  "assumptions": ["reasonable assumptions"],
-  "open_questions": ["important unresolved questions"]
+REQUIRED_FIELDS = set(REQUIRED_STRINGS + REQUIRED_LISTS) | {
+    "mechanics",
+    "scenes",
 }
 
-Every string must be a string. Every list must contain only strings.
-Do not include Markdown fences or explanatory text outside the JSON.
-Do not claim that code or assets have already been generated.
+MECHANIC_FIELDS = {"name", "description", "player_action"}
+SCENE_FIELDS = {"name", "purpose", "objectives"}
+
+
+SYSTEM_PROMPT = """
+You are WorldSmith, an intelligent AI game-design system.
+
+Your task is to understand the meaning and intent of a user's game idea
+and transform it into a coherent, detailed game design.
+
+Think through the game's intended experience, gameplay loop, mechanics,
+scenes, player objectives, and dependencies before producing the result.
+
+Preserve explicit user requirements. Do not silently replace them with
+different mechanics or genres. When details are missing, make reasonable
+assumptions and record them in the assumptions list.
+
+Return exactly one JSON object with this structure:
+
+{
+  "title": "Game title",
+  "genre": "Main genre",
+  "perspective": "2D, 3D, first-person, third-person, or top-down",
+  "target_engine": "Godot",
+  "core_loop": "The main repeated gameplay activity",
+  "player_goal": "The player's primary objective",
+  "world_description": "Setting, atmosphere, and world rules",
+  "features": [
+    "Major game feature"
+  ],
+  "mechanics": [
+    {
+      "name": "Mechanic name",
+      "description": "How the mechanic works",
+      "player_action": "What the player does to use it"
+    }
+  ],
+  "scenes": [
+    {
+      "name": "Scene name",
+      "purpose": "What this scene is for",
+      "objectives": [
+        "An objective or event in this scene"
+      ]
+    }
+  ],
+  "assumptions": [
+    "A reasonable design assumption"
+  ],
+  "open_questions": [
+    "An important unresolved design question"
+  ]
+}
+
+Requirements:
+- Every required field must be present.
+- All string fields must contain strings.
+- All list fields must contain lists of the specified types.
+- Each mechanic must contain name, description, and player_action.
+- Each scene must contain name, purpose, and objectives.
+- Make the design specific to the user's actual idea.
+- Keep the scope internally consistent and reasonably achievable.
+- Include enough detail to guide a later code-generation system.
+- Do not claim that code, assets, or playable builds already exist.
+- Do not include Markdown fences or text outside the JSON object.
 """
 
 
 class ModelOutputError(RuntimeError):
-    """Raised when the local model response cannot be safely used."""
+    """Raised when the model produces an invalid game design."""
 
 
-def validate_game_spec(spec: object) -> dict:
-    """Validate the decoded JSON object and return it."""
+def _require_nonempty_string(value, field):
+    if not isinstance(value, str):
+        raise ModelOutputError(
+            f"Field '{field}' must be a string."
+        )
+
+    if not value.strip():
+        raise ModelOutputError(
+            f"Field '{field}' cannot be empty."
+        )
+
+    if len(value) > 10_000:
+        raise ModelOutputError(
+            f"Field '{field}' is too long."
+        )
+
+
+def _validate_string_list(value, field):
+    if not isinstance(value, list):
+        raise ModelOutputError(
+            f"Field '{field}' must be a list of strings."
+        )
+
+    if len(value) > 100:
+        raise ModelOutputError(
+            f"Field '{field}' contains too many items."
+        )
+
+    for index, item in enumerate(value):
+        if not isinstance(item, str):
+            raise ModelOutputError(
+                f"Item {index} in '{field}' must be a string."
+            )
+
+        if len(item) > 2_000:
+            raise ModelOutputError(
+                f"Item {index} in '{field}' is too long."
+            )
+
+
+def _validate_object_list(value, field, required_fields):
+    if not isinstance(value, list):
+        raise ModelOutputError(
+            f"Field '{field}' must be a list."
+        )
+
+    if len(value) > 100:
+        raise ModelOutputError(
+            f"Field '{field}' contains too many items."
+        )
+
+    for index, item in enumerate(value):
+        if not isinstance(item, dict):
+            raise ModelOutputError(
+                f"Item {index} in '{field}' must be an object."
+            )
+
+        missing = required_fields - set(item)
+        unexpected = set(item) - required_fields
+
+        if missing:
+            raise ModelOutputError(
+                f"Item {index} in '{field}' is missing: "
+                + ", ".join(sorted(missing))
+            )
+
+        if unexpected:
+            raise ModelOutputError(
+                f"Item {index} in '{field}' has unexpected fields: "
+                + ", ".join(sorted(unexpected))
+            )
+
+        for key in required_fields:
+            _require_nonempty_string(
+                item[key],
+                f"{field}[{index}].{key}",
+            )
+
+
+def validate_game_spec(spec):
+    """Validate the complete game-design structure."""
 
     if not isinstance(spec, dict):
         raise ModelOutputError(
             "The model response must be a JSON object."
         )
 
-    required_fields = REQUIRED_STRINGS + REQUIRED_LISTS
+    missing = REQUIRED_FIELDS - set(spec)
+    unexpected = set(spec) - REQUIRED_FIELDS
 
-    missing = [key for key in required_fields if key not in spec]
     if missing:
         raise ModelOutputError(
-            "Missing required fields: " + ", ".join(missing)
+            "Missing required fields: "
+            + ", ".join(sorted(missing))
         )
 
-    for key in REQUIRED_STRINGS:
-        value = spec[key]
+    if unexpected:
+        raise ModelOutputError(
+            "Unexpected fields: "
+            + ", ".join(sorted(unexpected))
+        )
 
-        if not isinstance(value, str):
+    for field in REQUIRED_STRINGS:
+        _require_nonempty_string(spec[field], field)
+
+    for field in REQUIRED_LISTS:
+        _validate_string_list(spec[field], field)
+
+    _validate_object_list(
+        spec["mechanics"],
+        "mechanics",
+        MECHANIC_FIELDS,
+    )
+
+    for index, scene in enumerate(spec["scenes"]):
+        if not isinstance(scene, dict):
             raise ModelOutputError(
-                f"Field '{key}' must be a string."
+                f"Scene {index} must be an object."
             )
 
-        if not value.strip():
+        missing = SCENE_FIELDS - set(scene)
+        unexpected = set(scene) - SCENE_FIELDS
+
+        if missing:
             raise ModelOutputError(
-                f"Field '{key}' cannot be empty."
+                f"Scene {index} is missing: "
+                + ", ".join(sorted(missing))
             )
 
-    for key in REQUIRED_LISTS:
-        value = spec[key]
-
-        if not isinstance(value, list):
+        if unexpected:
             raise ModelOutputError(
-                f"Field '{key}' must be a list of strings."
+                f"Scene {index} has unexpected fields: "
+                + ", ".join(sorted(unexpected))
             )
 
-        if not all(isinstance(item, str) for item in value):
-            raise ModelOutputError(
-                f"Every item in '{key}' must be a string."
-            )
-
-    # Prevent excessively large individual responses from flowing
-    # into later stages unchecked.
-    for key in REQUIRED_STRINGS:
-        if len(spec[key]) > 10_000:
-            raise ModelOutputError(
-                f"Field '{key}' is too long."
-            )
-
-    for key in REQUIRED_LISTS:
-        if len(spec[key]) > 100:
-            raise ModelOutputError(
-                f"Field '{key}' contains too many items."
-            )
-
-        if any(len(item) > 2_000 for item in spec[key]):
-            raise ModelOutputError(
-                f"An item in '{key}' is too long."
-            )
+        _require_nonempty_string(
+            scene["name"], f"scenes[{index}].name"
+        )
+        _require_nonempty_string(
+            scene["purpose"], f"scenes[{index}].purpose"
+        )
+        _validate_string_list(
+            scene["objectives"],
+            f"scenes[{index}].objectives",
+        )
 
     return spec
 
 
-def decode_model_json(content: str) -> dict:
-    """Decode JSON strictly and validate the resulting object."""
+def decode_model_json(content):
+    """Decode and validate the model's JSON output."""
 
     if not isinstance(content, str) or not content.strip():
-        raise ModelOutputError("The model returned an empty response.")
+        raise ModelOutputError(
+            "The model returned an empty response."
+        )
 
     try:
         decoded = json.loads(content)
@@ -144,8 +283,8 @@ def decode_model_json(content: str) -> dict:
     return validate_game_spec(decoded)
 
 
-def analyze_game_idea(prompt: str) -> dict:
-    """Ask Ollama to interpret a game idea and validate its answer."""
+def analyze_game_idea(prompt):
+    """Ask the local model to design a game from a natural-language idea."""
 
     if not isinstance(prompt, str) or not prompt.strip():
         raise ValueError("The game description cannot be empty.")
@@ -156,7 +295,7 @@ def analyze_game_idea(prompt: str) -> dict:
         "format": "json",
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": prompt},
+            {"role": "user", "content": prompt.strip()},
         ],
         "options": {
             "temperature": 0.2,
@@ -173,18 +312,17 @@ def analyze_game_idea(prompt: str) -> dict:
     try:
         with urlopen(request, timeout=180) as response:
             raw_response = response.read().decode("utf-8")
+
     except HTTPError as exc:
         raise RuntimeError(
             f"Ollama returned HTTP {exc.code}."
         ) from exc
-    except URLError as exc:
+
+    except (URLError, socket.timeout, TimeoutError) as exc:
         raise RuntimeError(
-            "Cannot reach Ollama. Check that the local server "
-            "is running and the configured URL is correct."
-        ) from exc
-    except TimeoutError as exc:
-        raise RuntimeError(
-            "The local model request timed out."
+            "Could not reach the local model. Check that Ollama "
+            "is running, the URL is correct, and the request "
+            "can reach the configured model server."
         ) from exc
 
     try:
@@ -200,34 +338,43 @@ def analyze_game_idea(prompt: str) -> dict:
         )
 
     message = envelope.get("message")
+
     if not isinstance(message, dict):
         raise ModelOutputError(
             "Ollama's API response has no valid message object."
         )
 
-    content = message.get("content")
-    spec = decode_model_json(content)
+    spec = decode_model_json(message.get("content"))
 
-    # Preserve the exact prompt after validating the model-generated data.
-    spec["raw_prompt"] = prompt
-    return spec
+    # Keep the user's prompt as adapter metadata, not as a game-schema field.
+    return {
+        **spec,
+        "raw_prompt": prompt.strip(),
+    }
 
 
-def analyze_game_idea_for_mojo(prompt: str) -> dict:
-    """Return validated fields in a format compatible with GameSpec."""
+def analyze_game_idea_for_mojo(prompt):
+    """Return the fields currently consumed by the Mojo bridge."""
 
-    spec = analyze_game_idea(prompt)
+    result = analyze_game_idea(prompt)
+
+    game_spec = {
+        key: value
+        for key, value in result.items()
+        if key != "raw_prompt"
+    }
 
     return {
-        "raw_prompt": prompt,
-        "title": spec["title"],
-        "genre": spec["genre"],
-        "perspective": spec["perspective"],
-        "target_engine": spec["target_engine"],
-        "features": ", ".join(spec["features"]),
+        "raw_prompt": result["raw_prompt"],
+        "title": result["title"],
+        "genre": result["genre"],
+        "perspective": result["perspective"],
+        "target_engine": result["target_engine"],
+        "features": ", ".join(result["features"]),
         "details_json": json.dumps(
-            spec,
+            game_spec,
             ensure_ascii=False,
+            indent=2,
         ),
     }
 
@@ -236,6 +383,12 @@ if __name__ == "__main__":
     try:
         idea = input("Describe your game: ")
         result = analyze_game_idea(idea)
-        print(json.dumps(result, indent=2, ensure_ascii=False))
+
+        print(json.dumps(
+            result,
+            indent=2,
+            ensure_ascii=False,
+        ))
+
     except (ValueError, RuntimeError) as error:
         print(f"WorldSmith error: {error}")

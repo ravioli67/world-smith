@@ -1,37 +1,93 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "WorldSmith Game Specification",
-  "type": "object",
-  "required": [
-    "prompt",
-    "genre",
-    "perspective",
-    "features"
-  ],
-  "properties": {
-    "prompt": {
-      "type": "string",
-      "minLength": 1
-    },
-    "title": {
-      "type": "string"
-    },
-    "genre": {
-      "type": "string"
-    },
-    "perspective": {
-      "type": "string"
-    },
-    "features": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
-    },
-    "target_engine": {
-      "type": "string",
-      "default": "Godot"
-    }
-  },
-  "additionalProperties": false
+"$schema": "https://json-schema.org/draft/2020-12/schema",
+"title": "WorldSmith Game Specification",
+"description": "Structured design requirements for a game proposed to WorldSmith.",
+"type": "object",
+"additionalProperties": false,
+"required": [
+"title",
+"genre",
+"perspective",
+"target_engine",
+"core_loop",
+"player_goal",
+"world_description",
+"features",
+"mechanics",
+"scenes",
+"assumptions",
+"open_questions"
+],
+"properties": {
+"title": {
+"type": "string",
+"minLength": 1,
+"maxLength": 200
+},
+"genre": {
+"type": "string",
+"minLength": 1
+},
+"perspective": {
+"type": "string",
+"minLength": 1
+},
+"target_engine": {
+"type": "string",
+"minLength": 1
+},
+"core_loop": {
+"type": "string",
+"description": "The repeated sequence of actions that defines gameplay."
+},
+"player_goal": {
+"type": "string",
+"description": "The player's primary objective."
+},
+"world_description": {
+"type": "string",
+"description": "The game's setting, atmosphere, and world rules."
+},
+"features": {
+"$ref": "#/$defs/stringList"
+},
+"assumptions": {
+"$ref": "#/$defs/stringList"
+},
+"open_questions": {
+"$ref": "#/$defs/stringList"
+},
+"mechanics": {
+"type": "array",
+"items": {
+"type": "object",
+"additionalProperties": false,
+"required": ["name", "description", "player_action"],
+"properties": {
+"name": { "type": "string", "minLength": 1 },
+"description": { "type": "string" },
+"player_action": { "type": "string" }
+}
+}
+},
+"scenes": {
+"type": "array",
+"items": {
+"type": "object",
+"additionalProperties": false,
+"required": ["name", "purpose", "objectives"],
+"properties": {
+"name": { "type": "string", "minLength": 1 },
+"purpose": { "type": "string" },
+"objectives": { "$ref": "#/$defs/stringList" }
+}
+}
+}
+},
+"$defs": {
+"stringList": {
+"type": "array",
+"items": { "type": "string" }
+}
+}
 }
