@@ -1,5 +1,7 @@
 
 # WorldSmith/models/inference.mojo
+#
+# Connects the Mojo core to the local Python AI adapter.
 
 from std.python import Python
 
@@ -8,18 +10,10 @@ from models.model import ModelResult
 
 
 def analyze_with_local_model(prompt: String) raises -> ModelResult:
-    """Interpret a game idea using the locally running AI model."""
-
-    # Make the ai/ directory visible to Python.
     Python.add_to_path("ai")
-
-    # Import our local model adapter.
     var adapter = Python.import_module("local_model")
-
-    # Call the AI and receive a Python dictionary.
     var result = adapter.analyze_game_idea_for_mojo(prompt)
 
-    # Convert the adapter response into our existing GameSpec.
     var spec = GameSpec()
 
     spec.raw_prompt = String(py=result["raw_prompt"])
@@ -28,6 +22,15 @@ def analyze_with_local_model(prompt: String) raises -> ModelResult:
     spec.perspective = String(py=result["perspective"])
     spec.target_engine = String(py=result["target_engine"])
     spec.features = String(py=result["features"])
+
+    spec.core_loop = String(py=result["core_loop"])
+    spec.player_goal = String(py=result["player_goal"])
+    spec.world_description = String(py=result["world_description"])
+
+    spec.mechanics_json = String(py=result["mechanics_json"])
+    spec.scenes_json = String(py=result["scenes_json"])
+    spec.assumptions_json = String(py=result["assumptions_json"])
+    spec.open_questions_json = String(py=result["open_questions_json"])
 
     var details = String(py=result["details_json"])
 

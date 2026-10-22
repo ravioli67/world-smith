@@ -1,116 +1,63 @@
 
 # WorldSmith/core/planner.mojo
 #
-# Converts the interpreted game specification into an
-# ordered implementation plan.
-#
-# This planner currently uses the fields available in GameSpec.
-# Detailed mechanics and scenes will be connected in a later step.
+# Converts an AI-generated game design into an implementation plan.
 
 from core.context import GameSpec, GamePlan, summarize_spec
 
 
-def contains_keyword(text: String, keyword: String) -> Bool:
-    return text.lower().find(keyword) != -1
-
-
 def create_plan(spec: GameSpec) -> GamePlan:
     var summary = summarize_spec(spec)
-
     var stages = ""
-    var step = 1
 
-    # Stage 1: establish the project requirements.
-    stages += String(step) + ". Analyze game requirements\n"
-    stages += "   - Confirm the genre and player perspective\n"
-    stages += "   - Identify the requested engine and features\n"
-    step += 1
+    stages += "1. REQUIREMENTS AND DESIGN\n"
+    stages += "   Genre: " + spec.genre + "\n"
+    stages += "   Perspective: " + spec.perspective + "\n"
+    stages += "   Engine: " + spec.target_engine + "\n\n"
 
-    # Stage 2: design the gameplay.
-    stages += String(step) + ". Design the gameplay loop\n"
-    stages += "   - Define the player's repeated actions\n"
-    stages += "   - Establish the main objective and progression\n"
-    step += 1
+    stages += "2. GAMEPLAY DESIGN\n"
+    stages += "   Player goal: " + spec.player_goal + "\n"
+    stages += "   Core gameplay loop: " + spec.core_loop + "\n\n"
 
-    # Stage 3: establish the game world.
-    stages += String(step) + ". Design the game world\n"
-    stages += "   - Define the world and scene structure\n"
-    stages += "   - Identify the starting scene and transitions\n"
-    step += 1
+    stages += "3. WORLD DESIGN\n"
+    stages += "   " + spec.world_description + "\n\n"
 
-    # Stage 4: establish the technical foundation.
-    stages += String(step) + ". Set up the " + spec.target_engine + " project\n"
-    stages += "   - Create the project configuration\n"
-    stages += "   - Establish the main entry point\n"
-    step += 1
+    stages += "4. PROJECT FOUNDATION\n"
+    stages += "   Create the " + spec.target_engine + " project.\n"
+    stages += "   Establish project configuration and entry point.\n"
+    stages += "   Set up the main scene and input handling.\n\n"
 
-    # Stage 5: implement perspective-specific controls.
-    stages += String(step) + ". Implement player controls\n"
+    stages += "5. MECHANIC IMPLEMENTATION\n"
+    stages += "   Requested features: " + spec.features + "\n"
+    stages += "   Mechanic specifications (JSON):\n"
+    stages += spec.mechanics_json + "\n\n"
 
-    if contains_keyword(spec.perspective, "2d"):
-        stages += "   - Implement two-dimensional movement\n"
-        stages += "   - Configure collision and movement boundaries\n"
-    elif contains_keyword(spec.perspective, "first-person"):
-        stages += "   - Implement first-person movement and camera control\n"
-        stages += "   - Configure interaction and collision\n"
-    elif contains_keyword(spec.perspective, "top-down"):
-        stages += "   - Implement top-down movement and navigation\n"
-        stages += "   - Configure collision and interaction\n"
-    else:
-        stages += "   - Implement movement appropriate to the perspective\n"
-        stages += "   - Configure the camera and collision system\n"
+    stages += "6. SCENE IMPLEMENTATION\n"
+    stages += "   Scene specifications and objectives (JSON):\n"
+    stages += spec.scenes_json + "\n\n"
 
-    step += 1
+    stages += "7. GAMEPLAY INTEGRATION\n"
+    stages += "   Connect player controls, mechanics, and scenes.\n"
+    stages += "   Implement state transitions and progression.\n\n"
 
-    # Stage 6: build requested features.
-    stages += String(step) + ". Implement requested game features\n"
+    stages += "8. ASSETS AND PRESENTATION\n"
+    stages += "   Generate or source appropriate visual and audio assets.\n"
+    stages += "   Integrate interface elements and resource references.\n\n"
 
-    var features = spec.features.lower()
+    stages += "9. VALIDATION AND REPAIR\n"
+    stages += "   Check generated files and project configuration.\n"
+    stages += "   Run syntax checks and gameplay tests.\n"
+    stages += "   Repair detected problems and retest.\n\n"
 
-    if contains_keyword(features, "combat") or contains_keyword(features, "weapon"):
-        stages += "   - Implement combat and attack behavior\n"
+    stages += "10. FINAL BUILD PREPARATION\n"
+    stages += "   Verify launch instructions and required resources.\n"
+    stages += "   Prepare the project for local execution.\n\n"
 
-    if contains_keyword(features, "inventory") or contains_keyword(features, "item"):
-        stages += "   - Implement item storage and item interactions\n"
+    stages += "DESIGN ASSUMPTIONS\n"
+    stages += spec.assumptions_json + "\n\n"
 
-    if contains_keyword(features, "enemy") or contains_keyword(features, "ai"):
-        stages += "   - Implement enemy behavior and decision logic\n"
-
-    if contains_keyword(features, "dialogue") or contains_keyword(features, "npc"):
-        stages += "   - Implement character interactions and dialogue\n"
-
-    if contains_keyword(features, "quest") or contains_keyword(features, "mission"):
-        stages += "   - Implement objectives and quest progression\n"
-
-    if contains_keyword(features, "multiplayer"):
-        stages += "   - Design multiplayer architecture and synchronization\n"
-
-    stages += "   - Implement remaining features from the game specification\n"
-    step += 1
-
-    # Stage 7: connect scenes and progression.
-    stages += String(step) + ". Connect scenes and game progression\n"
-    stages += "   - Connect scene transitions\n"
-    stages += "   - Track game state and player progress\n"
-    step += 1
-
-    # Stage 8: assets and presentation.
-    stages += String(step) + ". Integrate game assets and presentation\n"
-    stages += "   - Add appropriate visuals, audio, and interface elements\n"
-    stages += "   - Verify asset references and resource loading\n"
-    step += 1
-
-    # Stage 9: validate the result.
-    stages += String(step) + ". Validate the generated project\n"
-    stages += "   - Check generated files and project structure\n"
-    stages += "   - Check syntax and engine compatibility\n"
-    stages += "   - Test core gameplay and important transitions\n"
-    step += 1
-
-    # Stage 10: repair and package.
-    stages += String(step) + ". Repair issues and prepare the playable build\n"
-    stages += "   - Fix detected generation and validation errors\n"
-    stages += "   - Confirm launch instructions and required assets\n"
+    stages += "OPEN DESIGN QUESTIONS\n"
+    stages += spec.open_questions_json + "\n"
 
     return GamePlan(
         summary,

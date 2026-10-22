@@ -282,74 +282,52 @@ def decode_model_json(content):
 
     return validate_game_spec(decoded)
 
+def analyze_game_idea_for_mojo(prompt):
+    """Return the complete game design for the Mojo application."""
 
-def analyze_game_idea(prompt):
-    """Ask the local model to design a game from a natural-language idea."""
+    result = analyze_game_idea(prompt)
 
-    if not isinstance(prompt, str) or not prompt.strip():
-        raise ValueError("The game description cannot be empty.")
-
-    payload = {
-        "model": MODEL_NAME,
-        "stream": False,
-        "format": "json",
-        "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": prompt.strip()},
-        ],
-        "options": {
-            "temperature": 0.2,
-        },
+    game_spec = {
+        key: value
+        for key, value in result.items()
+        if key != "raw_prompt"
     }
 
-    request = Request(
-        OLLAMA_URL,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-
-    try:
-        with urlopen(request, timeout=180) as response:
-            raw_response = response.read().decode("utf-8")
-
-    except HTTPError as exc:
-        raise RuntimeError(
-            f"Ollama returned HTTP {exc.code}."
-        ) from exc
-
-    except (URLError, socket.timeout, TimeoutError) as exc:
-        raise RuntimeError(
-            "Could not reach the local model. Check that Ollama "
-            "is running, the URL is correct, and the request "
-            "can reach the configured model server."
-        ) from exc
-
-    try:
-        envelope = json.loads(raw_response)
-    except json.JSONDecodeError as exc:
-        raise ModelOutputError(
-            "Ollama returned an invalid API response."
-        ) from exc
-
-    if not isinstance(envelope, dict):
-        raise ModelOutputError(
-            "Ollama's API response must be a JSON object."
-        )
-
-    message = envelope.get("message")
-
-    if not isinstance(message, dict):
-        raise ModelOutputError(
-            "Ollama's API response has no valid message object."
-        )
-
-    spec = decode_model_json(message.get("content"))
-
-    # Keep the user's prompt as adapter metadata, not as a game-schema field.
     return {
-        **spec,
-        "raw_prompt": prompt.strip(),
+        "raw_prompt": result["raw_prompt"],
+        "title": result["title"],
+        "genre": result["genre"],
+        "perspective": result["perspective"],
+        "target_engine": result["target_engine"],
+        "features": ", ".join(result["features"]),
+
+        # Detailed fields passed into Mojo.
+        "core_loop": result["core_loop"],
+        "player_goal": result["player_goal"],
+        "world_description": result["world_description"],
+        "mechanics_json": json.dumps(
+            result["mechanics"],
+            ensure_ascii=False,
+        ),
+        "scenes_json": json.dumps(
+            result["scenes"],
+            ensure_ascii=False,
+        ),
+        "assumptions_json": json.dumps(
+            result["assumptions"],
+            ensure_ascii=False,
+        ),
+        "open_questions_json": json.dumps(
+            result["open_questions"],
+            ensure_ascii=False,
+        ),
+
+        # Preserve the complete design for debugging and later stages.
+        "details_json": json.dumps(
+            game_spec,
+            ensure_ascii=False,
+            indent=2,
+        ),
     }
 
 
