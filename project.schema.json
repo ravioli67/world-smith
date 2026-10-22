@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WorldSmith Generated Project Manifest",
+  "type": "object",
+  "required": [
+    "project_name",
+    "engine",
+    "prompt",
+    "status"
+  ],
+  "properties": {
+    "project_name": {
+      "type": "string"
+    },
+    "engine": {
+      "type": "string"
+    },
+    "prompt": {
+      "type": "string"
+    },
+    "genre": {
+      "type": "string"
+    },
+    "perspective": {
+      "type": "string"
+    },
+    "features": {
+      "type": "string"
+    },
+    "plan": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}
