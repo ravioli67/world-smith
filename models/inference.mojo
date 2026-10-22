@@ -1,14 +1,34 @@
-from models.model import ModelConfig, default_model_config
+
+# WorldSmith/models/inference.mojo
+
+from std.python import Python
+
+from core.context import GameSpec
+from models.model import ModelResult
 
 
-def model_is_configured(config: ModelConfig) -> Bool:
-    return config.model_path != ""
+def analyze_with_local_model(prompt: String) raises -> ModelResult:
+    """Interpret a game idea using the locally running AI model."""
 
+    # Make the ai/ directory visible to Python.
+    Python.add_to_path("ai")
 
-def generate_text_placeholder(prompt: String) -> String:
-    """Placeholder only: no model weights are loaded by this function."""
-    return "Inference is not configured yet. Prompt received: " + prompt
+    # Import our local model adapter.
+    var adapter = Python.import_module("local_model")
 
+    # Call the AI and receive a Python dictionary.
+    var result = adapter.analyze_game_idea_for_mojo(prompt)
 
-def get_default_config() -> ModelConfig:
-    return default_model_config()
+    # Convert the adapter response into our existing GameSpec.
+    var spec = GameSpec()
+
+    spec.raw_prompt = String(py=result["raw_prompt"])
+    spec.title = String(py=result["title"])
+    spec.genre = String(py=result["genre"])
+    spec.perspective = String(py=result["perspective"])
+    spec.target_engine = String(py=result["target_engine"])
+    spec.features = String(py=result["features"])
+
+    var details = String(py=result["details_json"])
+
+    return ModelResult(spec, details)
