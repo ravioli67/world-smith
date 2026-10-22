@@ -1,36 +1,47 @@
-from core.prompt import analyze_prompt
-from core.planner import create_plan
-from generation.project_writer import write_manifest
-from config import get_project_name, get_project_version
+
+# WorldSmith/main.mojo
+#
+# Main entry point for WorldSmith.
+# Turns a natural-language game idea into an AI-assisted game plan.
+
+from core.orchestrator import orchestrate
 
 
-def main():
-    print("====================================")
-    print("             WORLDSMITH")
+def main() raises:
+    print("======================================")
+    print("       WORLDSMITH")
     print("       Turning Ideas Into Worlds")
-    print("====================================")
-    print("Version:", get_project_version())
+    print("======================================")
     print()
 
-    var prompt = input("Describe the game you want to create: ")
+    print("Describe the game you want to create.")
+    print("Be as detailed as you like.")
+    print()
 
-    if prompt == "":
-        print("Please enter a game description.")
+    var prompt = input("Game idea > ")
+
+    if prompt.strip() == "":
+        print("Error: Please enter a game description.")
         return
 
-    var spec = analyze_prompt(prompt)
-    var plan = create_plan(spec)
+    print()
+    print("WorldSmith is analyzing your idea...")
+    print("Contacting the local AI model...")
+    print()
+
+    try:
+        var result = orchestrate(prompt)
+        print(result)
+    except e:
+        print("WorldSmith could not complete the request.")
+        print("Check that your local AI service is running")
+        print("and that the model and Python environment are configured.")
+        print("Technical error:")
+        print(e)
 
     print()
-    print("=== GAME SPECIFICATION ===")
-    print("Title:", spec.title)
-    print("Genre:", spec.genre)
-    print("Perspective:", spec.perspective)
-    print("Features:", spec.features)
-    print()
-    print(plan.summary)
+    print("WorldSmith session finished.")
 
-    var result = write_manifest(spec, plan)
-    print()
-    print("Manifest status:", result)
-    print("This prototype plans projects; it does not yet generate a complete playable game.")
+
+if __name__ == "__main__":
+    main()
