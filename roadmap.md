@@ -50,17 +50,17 @@ The initial files are scaffolding. Some components are placeholders, and the pro
 
 ### Tasks
 
-- [ ] Verify the installed Mojo version and development environment.
-- [ ] Check the syntax and imports in every Mojo module.
-- [ ] Fix compilation and module-import errors.
-- [ ] Define a consistent `GameSpec` data structure.
-- [ ] Standardize how modules exchange game specifications and plans.
-- [ ] Connect the prompt interpreter to the planner.
-- [ ] Connect the planner to the orchestrator.
-- [ ] Validate the JSON schemas.
-- [ ] Establish a consistent error-reporting approach.
-- [ ] Run the initial test programs and fix failures.
-- [ ] Document how to build and run the project.
+- [x] Verify the installed Mojo version and development environment.
+- [x] Check the syntax and imports in every Mojo module.
+- [x] Fix compilation and module-import errors.
+- [x] Define a consistent `GameSpec` data structure.
+- [x] Standardize how modules exchange game specifications and plans.
+- [x] Connect the prompt interpreter to the planner.
+- [x] Connect the planner to the orchestrator.
+- [x] Validate the JSON schemas.
+- [x] Establish a consistent error-reporting approach.
+- [x] Run the initial test programs and fix failures.
+- [x] Document how to build and run the project.
 
 ### Completion criteria
 
@@ -74,17 +74,16 @@ WorldSmith can accept a game description, process it through the core modules, p
 
 ### Tasks
 
-- [ ] Detect common game genres.
-- [ ] Identify 2D, 3D, first-person, third-person, and top-down perspectives.
-- [ ] Extract requested gameplay mechanics.
-- [ ] Identify characters, enemies, items, and environments.
-- [ ] Recognize progression systems, quests, objectives, and win conditions.
-- [ ] Represent requirements as structured data.
-- [ ] Identify missing or contradictory requirements.
-- [ ] Ask clarifying questions when essential information is missing.
-- [ ] Estimate the complexity of the requested game.
-- [ ] Generate a dependency-aware development plan.
-- [ ] Support deterministic tests for prompt interpretation.
+- [x] Define structured game specification schema
+- [x] Expand local model output with mechanics and scenes
+- [x] Pass expanded game design fields into Mojo
+- [x] Add initial task dependency map
+- [ ] Compile and verify Mojo planner
+- [ ] Generate dependencies from individual scene objectives
+- [ ] Detect circular dependencies
+- [ ] Produce a machine-readable task graph
+- [ ] Schedule independent tasks for parallel execution
+- [ ] Connect planned tasks to actual code generation
 
 ### Completion criteria
 
