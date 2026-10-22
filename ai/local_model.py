@@ -147,3 +147,22 @@ if __name__ == "__main__":
         print(json.dumps(result, indent=2, ensure_ascii=False))
     except (ValueError, RuntimeError) as error:
         print(f"WorldSmith error: {error}")
+
+
+def analyze_game_idea_for_mojo(prompt: str) -> dict:
+    """Return a Mojo-friendly version of the AI result."""
+
+    spec = analyze_game_idea(prompt)
+
+    return {
+        "raw_prompt": prompt,
+        "title": str(spec["title"]),
+        "genre": str(spec["genre"]),
+        "perspective": str(spec["perspective"]),
+        "target_engine": str(spec["target_engine"]),
+        "features": ", ".join(str(item) for item in spec["features"]),
+        "details_json": json.dumps(
+            spec,
+            ensure_ascii=False,
+        ),
+    }
