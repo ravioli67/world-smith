@@ -1,6 +1,7 @@
 from core.prompt import analyze_prompt
 from core.planner import create_plan
 from core.planner import create_dynamic_plan
+from generation.godot_writer import write_godot_project
 
 def plan_from_prompt(prompt: String) -> String:
     """Coordinate prompt analysis and planning."""
@@ -13,3 +14,8 @@ def plan_from_prompt(prompt: String) -> String:
     output += "Summary: " + plan.summary + "\n"
     output += "Stages:\n" + plan.stages
     return output
+    var generated_project = write_godot_project(
+        spec,
+        "output/CrystalQuest",
+    )
+    print("Generated Godot project at: " + generated_project)
