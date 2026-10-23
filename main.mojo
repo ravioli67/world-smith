@@ -1,47 +1,56 @@
-
 # WorldSmith/main.mojo
-#
-# Main entry point for WorldSmith.
-# Turns a natural-language game idea into an AI-assisted game plan.
 
-from core.orchestrator import orchestrate
+from config import default_output_directory
+from config import default_target_engine
+from core.orchestrator import generate_game_design
+from core.orchestrator import save_design
 
 
 def main() raises:
-    print("======================================")
-    print("       WORLDSMITH")
-    print("       Turning Ideas Into Worlds")
-    print("======================================")
+    print("================================")
+    print("         WORLDSMITH")
+    print("      AI Game Generator")
+    print("================================")
     print()
-
     print("Describe the game you want to create.")
-    print("Be as detailed as you like.")
+    print("Examples: a stealth game, a farming RPG,")
+    print("a physics platformer, or something original.")
     print()
 
-    var prompt = input("Game idea > ")
+    var user_prompt = input("Game idea > ")
 
-    if prompt.strip() == "":
-        print("Error: Please enter a game description.")
+    if user_prompt == "":
+        print("No game description provided.")
         return
 
+    var engine = default_target_engine()
+
     print()
-    print("WorldSmith is analyzing your idea...")
-    print("Contacting the local AI model...")
-    print()
+    print("Target engine: " + engine)
+    print("Connecting to your local LM Studio model...")
+    print("Generating game design...")
 
     try:
-        var result = orchestrate(prompt)
-        print(result)
+        var response = generate_game_design(
+            user_prompt,
+            engine
+        )
+
+        print()
+        print("Game design generated successfully.")
+        print("Model: " + response.model_name)
+        print()
+        print(response.content)
+
+        save_design(
+            response,
+            default_output_directory()
+        )
+
     except e:
-        print("WorldSmith could not complete the request.")
-        print("Check that your local AI service is running")
-        print("and that the model and Python environment are configured.")
-        print("Technical error:")
+        print()
+        print("WorldSmith encountered an error:")
         print(e)
-
-    print()
-    print("WorldSmith session finished.")
-
-
-if __name__ == "__main__":
-    main()
+        print()
+        print("Check that LM Studio's server is running")
+        print("and that the configured model is loaded.")
