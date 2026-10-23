@@ -7,7 +7,7 @@
 # Automatic scheduling and execution will be added later.
 
 from core.context import GameSpec, GamePlan, summarize_spec
-
+from core.dynamic_task_graph import describe_dynamic_graph
 
 def contains_keyword(text: String, keyword: String) -> Bool:
     return text.lower().find(keyword) != -1
@@ -105,4 +105,14 @@ def create_plan(spec: GameSpec) -> GamePlan:
         summary,
         stages,
         spec.target_engine
+    )
+
+    def create_dynamic_plan(spec: GameSpec) raises -> GamePlan:
+    var summary = summarize_spec(spec)
+    var stages = describe_dynamic_graph(spec)
+
+    return GamePlan(
+        summary,
+        stages,
+        spec.target_engine,
     )
