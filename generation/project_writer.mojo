@@ -5,7 +5,7 @@ import os
 from models.model import ProjectManifest
 
 
-fn validate_relative_path(path: String) raises:
+def validate_relative_path(path: String) raises:
     if path == "":
         raise Error("Generated file has an empty path")
 
@@ -22,7 +22,7 @@ fn validate_relative_path(path: String) raises:
         raise Error("Hidden or special output paths are not allowed: " + path)
 
 
-fn write_project(
+def write_project(
     manifest: ProjectManifest,
     output_root: String,
     max_files: Int,

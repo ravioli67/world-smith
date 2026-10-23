@@ -6,7 +6,7 @@ from std.subprocess import run
 from models.model import ModelRequest, ModelResponse
 
 
-fn escape_json(value: String) -> String:
+def escape_json(value: String) -> String:
     var result = String()
 
     for i in range(len(value)):
@@ -28,7 +28,7 @@ fn escape_json(value: String) -> String:
     return result
 
 
-fn build_chat_payload(request: ModelRequest) -> String:
+def build_chat_payload(request: ModelRequest) -> String:
     var payload = "{\"model\":\""
     payload += escape_json(request.model_name)
     payload += "\",\"stream\":false,\"temperature\":"
@@ -46,7 +46,7 @@ fn build_chat_payload(request: ModelRequest) -> String:
     return payload
 
 
-fn request_local_model(
+def request_local_model(
     request: ModelRequest,
     endpoint: String
 ) raises -> ModelResponse:
