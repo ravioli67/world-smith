@@ -2,6 +2,7 @@
 
 from core.context import GameSpec, GamePlan, summarize_spec
 
+
 def build_design_request(
     spec: GameSpec,
     target_engine: String
