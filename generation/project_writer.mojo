@@ -1,36 +1,62 @@
-from core.context import GameSpec
-from core.planner import GamePlan
-from python import Python
+# WorldSmith/generation/project_writer.mojo
+
+import os
+
+from models.model import ProjectManifest
 
 
-def write_manifest(spec: GameSpec, plan: GamePlan) -> String:
-    """Write a JSON manifest through Python's standard library."""
-    var json = Python.import_module("json")
-    var pathlib = Python.import_module("pathlib")
-    var os = Python.import_module("os")
+fn validate_relative_path(path: String) raises:
+    if path == "":
+        raise Error("Generated file has an empty path")
 
-    var output_root = pathlib.Path("output")
-    output_root.mkdir(parents=True, exist_ok=True)
-    var project_dir = output_root / "generated_game"
-    project_dir.mkdir(parents=True, exist_ok=True)
+    if path.startswith("/"):
+        raise Error("Absolute output paths are not allowed: " + path)
 
-    var data = json.loads("{}")
-    data["project_name"] = "WorldSmith Generated Game"
-    data["engine"] = plan.engine
-    data["prompt"] = spec.raw_prompt
-    data["genre"] = spec.genre
-    data["perspective"] = spec.perspective
-    data["features"] = spec.features
-    data["plan"] = plan.summary
-    data["status"] = "planning-prototype"
+    if "\\" in path:
+        raise Error("Backslashes are not allowed in generated paths: " + path)
 
-    var manifest_path = project_dir / "project.json"
-    var file_handle = builtins_open(manifest_path)
-    file_handle.write(json.dumps(data, indent=2))
-    file_handle.close()
-    return "Wrote " + String(manifest_path)
+    if ".." in path:
+        raise Error("Parent-directory traversal is not allowed: " + path)
+
+    if path.startswith("."):
+        raise Error("Hidden or special output paths are not allowed: " + path)
 
 
-def builtins_open(path) :
-    var builtins = Python.import_module("builtins")
-    return builtins.open(path, "w")
+fn write_project(
+    manifest: ProjectManifest,
+    output_root: String,
+    max_files: Int,
+    max_file_size_bytes: Int
+) raises:
+    if output_root == "":
+        raise Error("Output directory cannot be empty")
+
+    if manifest.file_count() == 0:
+        raise Error("The project manifest contains no files")
+
+    if manifest.file_count() > max_files:
+        raise Error("Project exceeds the configured file-count limit")
+
+    os.makedirs(output_root, exist_ok=True)
+
+    for i in range(len(manifest.files)):
+        var generated_file = manifest.files[i]
+        validate_relative_path(generated_file.path)
+
+        if len(generated_file.content) > max_file_size_bytes:
+            raise Error(
+                "Generated file exceeds size limit: "
+                + generated_file.path
+            )
+
+        var full_path = output_root + "/" + generated_file.path
+        var parent_and_name = os.path.split(full_path)
+        var parent_directory = parent_and_name[0]
+
+        if parent_directory != "":
+            os.makedirs(parent_directory, exist_ok=True)
+
+        with open(full_path, "w") as output_file:
+            output_file.write(generated_file.content)
+
+        print("Wrote: " + full_path)

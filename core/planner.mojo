@@ -1,118 +1,75 @@
-
 # WorldSmith/core/planner.mojo
-#
-# Creates an implementation plan with explicit task dependencies.
-#
-# This version produces a readable dependency graph.
-# Automatic scheduling and execution will be added later.
 
 from core.context import GameSpec, GamePlan, summarize_spec
-from core.dynamic_task_graph import describe_dynamic_graph
 
-def contains_keyword(text: String, keyword: String) -> Bool:
-    return text.lower().find(keyword) != -1
+def build_design_request(
+    spec: GameSpec,
+    target_engine: String
+) -> String:
+    var prompt = """
+Design a game from the user's description.
 
+Return one valid JSON object with these top-level fields:
 
-def build_dependency_plan(spec: GameSpec) -> String:
-    var plan = ""
+{
+  "title": "Game title",
+  "engine": "Target engine and version",
+  "design_summary": "Short design overview",
+  "genre": "Game genre",
+  "perspective": "Camera and player perspective",
+  "player_goal": "Main player objective",
+  "core_loop": "Main gameplay loop",
+  "world_description": "Description of the world",
+  "mechanics": [
+    {
+      "id": "stable_identifier",
+      "name": "Mechanic name",
+      "description": "How it works",
+      "dependencies": []
+    }
+  ],
+  "scenes": [
+    {
+      "id": "stable_identifier",
+      "name": "Scene name",
+      "purpose": "What this scene does",
+      "mechanics": []
+    }
+  ],
+  "assumptions": [],
+  "open_questions": []
+}
 
-    # T01: Requirements are the root dependency.
-    plan += "T01 | Analyze requirements | depends_on: none\n"
+Design rules:
+- The user's description is the source of truth.
+- Do not add unrelated mechanics just to fill the response.
+- Include the systems necessary to make the requested game coherent.
+- Represent real dependencies between mechanics.
+- Keep identifiers unique and stable.
+- Prefer a playable, focused first version over an enormous unfinished game.
+- Do not generate project files in this planning stage.
+- Return valid JSON only.
+"""
 
-    # Design can begin after requirements are understood.
-    plan += "T02 | Finalize gameplay design | depends_on: T01\n"
+    prompt += "\n\nTarget engine: " + target_engine
+    prompt += "\n\nOriginal user request:\n" + spec.raw_prompt
 
-    # Project setup needs the requirements, but not finished mechanics.
-    plan += "T03 | Set up engine project | depends_on: T01\n"
-
-    # Controls require a functioning project.
-    plan += "T04 | Implement player controls | depends_on: T03\n"
-
-    # Core mechanics require both design and working controls.
-    plan += "T05 | Implement core mechanics | depends_on: T02, T04\n"
-
-    # Scene construction needs the design and project foundation.
-    plan += "T06 | Implement game scenes | depends_on: T02, T03\n"
-
-    # Feature-specific work can be planned from the requested features.
-    var features = spec.features
-
-    if contains_keyword(features, "combat"):
-        plan += "T07 | Implement combat | depends_on: T05\n"
-
-    if contains_keyword(features, "inventory"):
-        plan += "T08 | Implement inventory | depends_on: T05\n"
-
-    if contains_keyword(features, "dialogue"):
-        plan += "T09 | Implement dialogue | depends_on: T05, T06\n"
-
-    if contains_keyword(features, "quest"):
-        plan += "T10 | Implement quest progression | depends_on: T05, T06\n"
-
-    # Integrate the completed mechanics and scenes.
-    plan += "T11 | Integrate gameplay | depends_on: T05, T06\n"
-
-    # Asset integration depends on the scenes it serves.
-    plan += "T12 | Integrate assets and presentation | depends_on: T06\n"
-
-    # Test only after integration and asset references are available.
-    plan += "T13 | Validate project | depends_on: T11, T12\n"
-
-    # Repairs depend on validation findings.
-    plan += "T14 | Repair detected issues | depends_on: T13\n"
-
-    # The final project depends on successful repair and revalidation.
-    plan += "T15 | Prepare playable build | depends_on: T14\n"
-
-    return plan
+    return prompt
 
 
-def create_plan(spec: GameSpec) -> GamePlan:
+def create_plan(
+    spec: GameSpec,
+    target_engine: String
+) -> GamePlan:
     var summary = summarize_spec(spec)
-    var stages = ""
 
-    stages += "=== GAME DESIGN ===\n"
-    stages += "Title: " + spec.title + "\n"
-    stages += "Goal: " + spec.player_goal + "\n"
-    stages += "Gameplay loop: " + spec.core_loop + "\n"
-    stages += "World: " + spec.world_description + "\n\n"
+    var stages = """
+1. Interpret and validate the game design.
+2. Build a dependency graph from the planned mechanics and scenes.
+3. Generate project files for each required task.
+4. Validate file structure and engine compatibility.
+5. Repair failed validation stages within the configured retry limit.
+6. Report the generated project and any unresolved issues.
+"""
 
-    stages += "=== IMPLEMENTATION ORDER ===\n"
-    stages += "1. Analyze requirements and finalize the design.\n"
-    stages += "2. Set up the engine project.\n"
-    stages += "3. Implement player controls.\n"
-    stages += "4. Implement core mechanics.\n"
-    stages += "5. Build the scenes.\n"
-    stages += "6. Integrate gameplay and assets.\n"
-    stages += "7. Validate, repair, and prepare the build.\n\n"
-
-    stages += "=== MECHANIC SPECIFICATIONS ===\n"
-    stages += spec.mechanics_json + "\n\n"
-
-    stages += "=== SCENE SPECIFICATIONS ===\n"
-    stages += spec.scenes_json + "\n\n"
-
-    stages += "=== DEPENDENCY GRAPH ===\n"
-    stages += build_dependency_plan(spec) + "\n"
-
-    stages += "=== ASSUMPTIONS ===\n"
-    stages += spec.assumptions_json + "\n\n"
-
-    stages += "=== OPEN QUESTIONS ===\n"
-    stages += spec.open_questions_json + "\n"
-
-    return GamePlan(
-        summary,
-        stages,
-        spec.target_engine
-    )
-
-    def create_dynamic_plan(spec: GameSpec) raises -> GamePlan:
-    var summary = summarize_spec(spec)
-    var stages = describe_dynamic_graph(spec)
-
-    return GamePlan(
-        summary,
-        stages,
-        spec.target_engine,
-    )
+    return GamePlan(summary, stages, target_engine)
